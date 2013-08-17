@@ -1,0 +1,36 @@
+* {
+	margin:0;
+	padding:0;
+}
+
+body {
+	font: normal 13px Courier, Gulim;
+	letter-spacing: -1px;
+}
+
+#error {
+	background:#990000;
+	position:absolute;
+	right:40px;
+	top:12px;
+}
+
+#login {
+	padding:6px;
+}
+
+#menu {
+	font-size:16px;
+	text-align:center;
+}
+
+#search {
+	width:100%;
+	text-align:center;
+	padding:10px 0;
+}
+
+body h1 {
+	padding:6px 0;
+	font-size:36px;
+}
