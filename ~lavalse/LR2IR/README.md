@@ -19,9 +19,14 @@ Do not use this for commercial.
 
 * NOT IMPLEMENTED
 ---------------------
-1. Course System
-2. Some unknown systems (ex: rseed, ghost, etc)
-3. Unstable DB system
-4. Better UI
+1. Some unknown systems (ex: rseed, ghost, etc)
+2. Unstable DB system
+3. Better UI
 
-* Last modified - 13.08.17
+* Last modified - 13.08.19
+
+
+<8.19>
+
+* Added Course System
+* Fixed _dbSetup.php, search system, and so on.

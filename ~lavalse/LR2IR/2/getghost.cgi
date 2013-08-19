@@ -9,8 +9,8 @@ $play = mysql_query($play_query);
 $playdata = mysql_fetch_array($play);
 
 $targetname = $playdata['name'];
-$targetarg2 = '';	// Dont know
-$targetarg3 = '';	// Dont know... rseed?
+$targetarg2 = '21';	// Option (21 Hardrandom 1 Hard)
+$targetarg3 = $playdata['rseed'];
 $targetghost = $playdata['ghost'];
 
 print "#$targetname,$targetarg2,$targetarg3,$targetghost,";

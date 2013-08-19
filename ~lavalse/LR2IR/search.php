@@ -40,24 +40,29 @@ if ($exec == "playerdelete") {
 	$login = NULL;
 	
 	// remove logged user
-	$sql = "DELETE FROM `lr2ir`.`lr2ir_user` WHERE id=$login_id LIMIT 1";
+	$sql = "DELETE FROM `lr2ir`.`lr2ir_user` WHERE id='$login_id' LIMIT 1";
 	mysql_query($sql);
 }
 if ($exec == "scoredelete") {
 	$songmd5 = $_REQUEST['songmd5'];
-	$sql = "DELETE FROM play WHERE id=$login_id AND songmd5=$songmd5 LIMIT 1";
+	if (!$songmd5)  {
+		$bmsid = $_REQUEST['bmsid'];
+		$sql = "DELETE FROM play WHERE id='$login_id' AND songmd5='$bmsid' LIMIT 1";
+	} else {
+		$sql = "DELETE FROM play WHERE id='$login_id' AND songmd5='$songmd5' LIMIT 1";
+	}
 	mysql_query($sql);
 }
 if ($exec == "coursescoredelete") {
 	$courseid = $_REQUEST['courseid'];
-	$sql = "DELETE FROM courseplay WHERE id=$login_id AND courseid=$courseid LIMIT 1";
+	$sql = "DELETE FROM courseplay WHERE id='$login_id' AND courseid='$courseid' LIMIT 1";
 	mysql_query($sql);
 }
 if ($exec == "mypage_update") {
 	$name = $_POST['name'];
 	$profile = $_POST['profile'];
 	$homepage = $_POST['homepage'];
-	$sql = "UPDATE LR2IR_user SET name=$name, desc=$profile, homepage=$homepage WHERE id='$login_id' LIMIT 1";
+	$sql = "UPDATE LR2IR_user SET name='$name', desc='$profile', homepage='$homepage' WHERE id='$login_id' LIMIT 1";
 }
 if ($exec == "comment") {
 	$board = $_POST["board"];
@@ -115,7 +120,7 @@ if ($exec == "comment") {
 	}
 	print "<a href='search.php?mode=search&type=insane'>INSANE BMS</a> | ";
 	print "<a href='search.php?mode=ranking_all'>ALL RANKING</a> | ";
-	print "<a href='search.php?mode=ranking_all&courseid=-1'>ALL COURSE</a>";
+	print "<a href='search.php?keyword=&mode=search&type=course'>ALL COURSE</a>";
 	print "</div>";
 	?>
     
@@ -205,14 +210,15 @@ if ($exec == "comment") {
 		// view recent songs
 		print "<a href='./search.php?mode=mylist&playerid=$id&sort=playcount'>See Most Played Songs</a><br>";
 		print "<a href='./search.php?mode=mylist&playerid=$id&sort=recent'>See Recent Played Songs</a><br>";
+		print "<a href='./search.php?mode=mylist_course&playerid=$id&sort=playcount'>See Most Played Courses</a><br>";
+		print "<a href='./search.php?mode=mylist_course&playerid=$id&sort=recent'>See Recent Played Courses</a><br>";
 		print "<br><br><br>";
 		
 		// comments
 		$comment_query = "SELECT * FROM comment WHERE board='player$id'";
 		$comment = mysql_query($comment_query);
 		while ($cdata = mysql_fetch_array($comment)) {
-			$date = date("Y-m-d H:m:s", $cdata['timestamp']);
-			print("{$cdata['name']} - {$cdata['comment']} - $date<br>");
+			print("{$cdata['name']} - {$cdata['comment']} - {$cdata['timestamp']}<br>");
 		}
 		
 		if ($login) {
@@ -262,7 +268,54 @@ if ($exec == "comment") {
 			break;
 		}
 		
-		$play_query = "SELECT * FROM play WHERE id='$id' " . $mode . $srtquery;
+		$play_query = "SELECT * FROM play WHERE id='$id' and length(songmd5)=32 " . $mode . $srtquery;
+		$play = mysql_query($play_query);
+		while ($pdata = mysql_fetch_array($play)) {
+			print "<a href='./search.php?mode=ranking&songmd5={$pdata['songmd5']}'>";
+			print "{$pdata['title']} - {$pdata['str_clear']} - {$pdata['str_rank']}";
+			print "</a><br>";
+		}
+	} else if ($mode == "mylist_course") {
+		// list user's song
+		$sort = $_GET['sort'];		// playcount, recent, clear
+		$id = $_GET['playerid'];
+		$filter = $_GET['filter'];	// 0, 7, 5, 14, 10, 9
+		if (!$filter) $filter = 0;
+		
+		$mode = '';
+		switch ($filter) {
+			case 0:
+			break;
+			case 1:
+			$mode = ' and mode=7';
+			break;
+			case 2:
+			$mode = ' and mode=5';
+			break;
+			case 3:
+			$mode = ' and mode=14';
+			break;
+			case 4:
+			$mode = ' and mode=10';
+			break;
+			case 5:
+			$mode = ' and mode=9';
+			break;
+		}
+		switch ($sort) {
+			case 'playcount':
+			$srtquery = ' ORDER BY playcount desc';
+			break;
+			case 'clear':
+			$srtquery = ' ORDER BY rate desc';
+			break;
+			case 'recent':
+			$srtquery = ' ORDER BY timestamp desc';
+			default:
+			break;
+		}
+		
+		$play_query = "SELECT * FROM play WHERE id='$id' and length(songmd5)>32 " . $mode . $srtquery;
 		$play = mysql_query($play_query);
 		while ($pdata = mysql_fetch_array($play)) {
 			print "<a href='./search.php?mode=ranking&songmd5={$pdata['songmd5']}'>";
@@ -281,7 +334,7 @@ if ($exec == "comment") {
 		switch ($type) {
 			case 'keyword':
 			default:
-			$song_query = "SELECT * FROM song WHERE title like '%$keyword%' ";
+			$song_query = "SELECT * FROM song WHERE title like '%$keyword%' and length(songmd5)=32 ";
 			break;
 			case 'tag':
 			$song_query = "SELECT * FROM song WHERE tag like '%$keyword%' ";
@@ -289,7 +342,7 @@ if ($exec == "comment") {
 			$song_query = "SELECT * FROM LR2IR_user WHERE name like '%$keyword%' ";
 			break;
 			case 'course':
-			$song_query = "SELECT * FROM course WHERE title like '%$keyword%' ";
+			$song_query = "SELECT * FROM song WHERE title like '%$keyword%' and length(songmd5)>32 ";
 			break;
 		}
 		
@@ -334,23 +387,24 @@ if ($exec == "comment") {
 				case 'keyword':
 				case 'tag':
 				default:
-				print "<a href='./search.php?mode=ranking&bmsid={data['bmsid']}'>";
-				print "{data['title']} - {data['artist']}";
+				print "<a href='./search.php?mode=ranking&bmsid={$data['bmsid']}'>";
+				print "{$data['title']} - {$data['artist']}";
 				print "</a><br>";
 				break;
 				case 'player':
-				print "<a href='./search.php?mode=mypage&playerid={data['id']}>";
-				print "{data['name']} - {data['grade_sp']}/{data['grade_dp']}";
+				print "<a href='./search.php?mode=mypage&playerid={$data['id']}>";
+				print "{$data['name']} - {$data['grade_sp']}/{$data['grade_dp']}";
 				print "</a><br>";
+				break;
 				case 'course':
-				print "<a href='./search.php?mode=ranking&courseid={data['courseid']}'>";
-				print "{data['title']} - {data['author']}";
+				print "<a href='./search.php?mode=ranking&courseid={$data['bmsid']}'>";
+				print "{$data['title']} - {$data['artist']}";
 				print "</a><br>";
 				break;
 			}
 		}
 		$args .= "&sort=" . $sort;
-		if ($page > 1) print "<a href='./search.php?page=$page+1&$args'> ← </a> / ";
+		if ($page > 1) print "<a href='./search.php?page=$page-1&$args'> ← </a> / ";
 		if ($count >= 100) print "<a href='./search.php?page=$page+1&$args'> → </a>";
 	} else if ($mode == "ranking_all") {
 		// show songs LIMIT 100 desc playcount
@@ -359,17 +413,13 @@ if ($exec == "comment") {
 		$start = ($page-1)*100;
 		$end = $page*100;
 		
-		$song_query = "SELECT * FROM song ORDER BY playcount DESC LIMIT $start, $end";
+		$song_query = "SELECT * FROM song WHERE length(songmd5)=32 ORDER BY playcount DESC LIMIT $start, $end";
 		$song = mysql_query($song_query);
-		if ($song) {
-			$count = mysql_num_rows($song);
-		} else {
-			$count = 0;
-		}
+		$count = mysql_num_rows($song);
 		while ($songdata = mysql_fetch_array($song)) {
 			$start += 1;
 			print "<a href='./search.php?mode=ranking&bmsid={$songdata['bmsid']}'>";
-			print "$start - {$songdata['title']} - {$songdata['clear']} - {$songdata['str_clear']} - {$songdata['str_rank']} - {$songdata['playcount']}";
+			print "$start - {$songdata['title']} - {$songdata['artist']} - {$songdata['playcount']}";
 			print "</a><br>";
 		}
 		
@@ -378,20 +428,15 @@ if ($exec == "comment") {
 		if ($count >= 100) print "<a href='./search.php?page=$page+1&$args'> → </a>";
 	} else if ($mode == "ranking") {
 		// show song information
-		// ++ NEED CODE FOR COURSEID ++ //
 		$courseid = $_GET['courseid'];
 		$bmsid = $_GET['bmsid'];
 		$page = $_GET['page'];
 		
 		if ($courseid) {
-			if ($courseid == '-1') {
-				$song_query = "SELECT * FROM course ";
-			} else {
-				$song_query = "SELECT * FROM course where courseid='$courseid'";
-			}
+			$song_query = "SELECT * FROM song where length(songmd5)>32 and bmsid='$courseid'";
 		} else {
 			if ($bmsid) {
-				$song_query = "SELECT * FROM song where bmsid='$bmsid'";
+				$song_query = "SELECT * FROM song where bmsid='$bmsid' and length(songmd5)=32";
 			} else {
 				$songmd5 = $_GET['songmd5'];
 				$song_query = "SELECT * FROM song where songmd5='$songmd5'";
@@ -400,28 +445,51 @@ if ($exec == "comment") {
 		$song = mysql_query($song_query);
 		$songdata = mysql_fetch_array($song);
 		if ($songdata) {
-			print "{$songdata['title']} <br>";
 			$songmd5 = $songdata['songmd5'];
 			$bmsid = $songdata['bmsid'];
 			
+			if (strlen($songmd5) == 32) {
+				print "{$songdata['title']} <br>";
+				print "{$songdata['artist']} <br>";
+				print "{$songdata['genre']} <br><br>";
+			} else {
+				print "{$songdata['title']} <br><br>";
+				
+				// print info of the sub songs
+				$cnt = strlen($songmd5)/32;
+				for ($i=0; $i<$cnt; $i++) {
+					$hash = substr($songmd5, $i*32, 32);
+					$q = "SELECT * FROM song WHERE songmd5='$hash' LIMIT 1";
+					$qr = mysql_query($q);
+					$qd = mysql_fetch_array($qr);
+					$num = $i+1;
+					
+					print "<a href='search.php?mode=ranking&songmd5=$hash'>";
+					print "[$num]: {$qd['title']}";
+					print "</a><br>";
+				}
+			}
+			
+			print "P-A:{$songdata['pa']} / ";
+			print "FULLCOMBO:{$songdata['fc']} / ";
+			print "GROOVE:{$songdata['gv']} / ";
+			print "EASY:{$songdata['easy']} / ";
+			print "FAILED:{$songdata['fail']}<br>";
+			print "PLAYCOUNT:{$songdata['playcount']} / ";
+			print "CLEARCOUNT:{$songdata['clearcount']}<br>";
+			print "PLAYUSERCOUNT:{$songdata['playusercount']} / ";
+			print "CLEARUSERCOUNT:{$songdata['clearusercount']}<br>";
+			print "<br><br>";
+			
 			// if own score submitted then show score & score removal
 			if ($login) {
-				if ($courseid) {
-					$play_query = "SELECT * FROM courseplay where courseid='$courseid' and id='$login_id'";
-				} else {
-					$play_query = "SELECT * FROM play where songmd5='$songmd5' and id='$login_id'";
-				}
+				$play_query = "SELECT * FROM play where songmd5='$songmd5' and id='$login_id'";
 				$play = mysql_query($play_query);
-				if ($play) {
-					$playdata = mysql_fetch_array($play);
+				if ($playdata = mysql_fetch_array($play)) {
 					$query_str = getenv("QUERY_STRING");
-					if ($courseid) {
-						print "$name's playdata : {$playdata['exscore']} - ";
-						print "<a href='./search.php?$query_str&exec=coursescoredelete&courseid=$courseid'>Remove Score</a><br>";
-					} else {
-						print "$name's playdata : {$playdata['exscore']} - ";
-						print "<a href='./search.php?$query_str&exec=scoredelete&songmd5=$songmd5'>Remove Score</a><br>";
-					}
+					print "$login_name's playdata : {$playdata['exscore']} - ";
+					print "<a href='./search.php?$query_str&exec=scoredelete&songmd5=$songmd5'>Remove Score</a><br>";
+					print "<br><br>";
 				}
 			}
 			
@@ -430,36 +498,28 @@ if ($exec == "comment") {
 			if (!$page) $page=1;
 			$start = ($page-1)*100;
 			$end = $page*100;
-			if ($courseid) {
-				$play_query = "SELECT * FROM courseplay where courseid='$courseid' ORDER BY exscore DESC LIMIT $start, $end";
-			} else {
-				$play_query = "SELECT * FROM play where songmd5='$songmd5' ORDER BY exscore DESC LIMIT $start, $end";
-			}
+			
+			$play_query = "SELECT * FROM play where songmd5='$songmd5' ORDER BY exscore DESC LIMIT $start, $end";
 			$play = mysql_query($play_query);
+			print "[Ranking]<br>";
 			while ($playdata = mysql_fetch_array($play)) {
 				print "{$playdata['name']} - {$playdata['pg']}/{$playdata['gr']}/{$playdata['gd']}/{$playdata['bd']}/{$playdata['pr']}<br>";
 			}
+			print "<br><br><br><br>";
 			
 			// comments
-			if ($courseid) {
-				$comment_query = "SELECT * FROM comment WHERE board=course$courseid";
-			} else {
-				$comment_query = "SELECT * FROM comment WHERE board=score$bmsid";
-			}
+			$comment_query = "SELECT * FROM comment WHERE board='score$bmsid'";
 			$comment = mysql_query($comment_query);
-			$data = mysql_fetch_array($comment);
-			while ($data) {
+			while ($cdata = mysql_fetch_array($comment)) {
+				print("{$cdata['name']} - {$cdata['comment']} - {$cdata['timestamp']}<br>");
+				print "<br>";
 			}
 			// comment write
 			if ($login) {
 				print "<form action='#' method='post'>";
 				print "<input type='text' name='comment'>";
 				print "<input type='submit' name='exec' value='comment'>";
-				if ($courseid) {
-					print "<input type='hidden' name='board' value='course$courseid'><br>";
-				} else {
-					print "<input type='hidden' name='board' value='score$bmsid'><br>";
-				}
+				print "<input type='hidden' name='board' value='score$bmsid'><br>";
 				print "</form>";
 			}
 		} else {

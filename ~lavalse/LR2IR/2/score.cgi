@@ -1,8 +1,6 @@
 <?
 include("./mysqllogin.php");
 
-// 단위인정은?
-
 if (!$_POST) {
 	die("ERROR - NO POST");
 }
@@ -69,9 +67,9 @@ if (mysql_num_rows($play) == 0) {
 
 	// insert
 	
-	$play_query = "INSERT INTO `lr2ir`.`play` 
-	(`songmd5`, `title`, `id`, `name`, `playcount`, `clearcount`, `totalnote`, `exscore`, `str_clear`, `str_rank`, `pg`, `gr`, `gd`, `bd`, `pr`, `maxcombo`, `minbp`, `ghost`, `minbpm`, `maxbpm`, `rate`, `opt_history`, `opt_this`, `clear`, `inputtype`, `timestamp`) VALUES 
-	('$songmd5', '$title', '$id', '$name', '$playcount', '$clearcount', '$totalnotes', '$exscore', '', '', '$pg', '$gr', '$gd', '$bd', '$pr', '$maxcombo', '$minbp', '$ghost', '$minbpm', '$maxbpm', '$rate', '$opt_history', '$opt_this', '$clear', '$inputtype', CURRENT_TIMESTAMP);";
+	$play_query = "INSERT INTO `lr2ir`.`play`
+	(`songmd5`, `title`, `id`, `name`, `playcount`, `clearcount`, `totalnote`, `exscore`, `str_clear`, `str_rank`, `pg`, `gr`, `gd`, `bd`, `pr`, `maxcombo`, `minbp`, `ghost`, `rseed`, `minbpm`, `maxbpm`, `rate`, `opt_history`, `opt_this`, `clear`, `inputtype`, `timestamp`) VALUES
+	('$songmd5', '$title', '$id', '$name', '$playcount', '$clearcount', '$totalnotes', '$exscore', '', '', '$pg', '$gr', '$gd', '$bd', '$pr', '$maxcombo', '$minbp', '$ghost', '$rseed', '$minbpm', '$maxbpm', '$rate', '$opt_history', '$opt_this', '$clear', '$inputtype', CURRENT_TIMESTAMP);";
 	mysql_query($play_query);
 } else {
 	// set previous value
@@ -81,8 +79,11 @@ if (mysql_num_rows($play) == 0) {
 	$p_clear = $playdata['clear'];
 
 	// update
-	$play_query = "UPDATE play SET playcount='$playcount', clearcount='$clearcount', exscore='$exscore', pg='$pg', gr='$gr', gd='$gd', bd='$bd', pr='$pr', maxcombo='$maxcombo', rate='$rate', minbp='$bp', opt_history='$opt_history', opt_this='$opt_this', clear='$clear', inputtype='$inputtype', ghost='$ghost' where id='$id'";
+	$play_query = "UPDATE play SET playcount='$playcount', clearcount='$clearcount', exscore='$exscore', pg='$pg', gr='$gr', gd='$gd', bd='$bd', pr='$pr', maxcombo='$maxcombo', rate='$rate', minbp='$bp', opt_history='$opt_history', opt_this='$opt_this', clear='$clear', inputtype='$inputtype', ghost='$ghost', rseed='$rseed' where id='$id' and songmd5='$songmd5' LIMIT 1";
 	mysql_query($play_query);
+	
+	//print "PREVIOUS QUERY FOUND<br>";
+	//print "$play_query<br>";
 }
 
 // -------------------------------
@@ -100,61 +101,65 @@ if (mysql_num_rows($play) == 0) {
 // 부분갱신법: 기존수치만큼 스탯을 뺀 후에 (앞의 score 단계에서 기존수치 알수있다) 현재수치만큼 더하면 됨
 
 // 이전에 플레이한 적이 있을 때에 한해서 스탯을 뺀다
-if ($p_clear >= 0) {
-	$user_query = "UPDATE LR2IR_user SET playcount=playcount-$p_playcount, songcount=songcount-1, clearcount=clearcount-$p_clearcount, ";
+// Don't Update when it's Courseplay
+
+if (strlen($songmd5)==32) {
+	if ($p_clear >= 0) {
+		$user_query = "UPDATE LR2IR_user SET playcount=playcount-$p_playcount, songcount=songcount-1, clearcount=clearcount-$p_clearcount, ";
+		
+		switch ($p_clear) {
+			case 0:
+				break;
+			case 1:
+				$user_query .= " failed = failed-1 ";
+				break;
+			case 2:
+				$user_query .= " easy = easy-1 ";
+				break;
+			case 3:
+				$user_query .= " groove = groove-1 ";
+				break;
+			case 4:
+				$user_query .= " hard = hard-1 ";
+				break;
+			case 5:
+				$user_query .= " fc = fc-1 ";
+				break;
+			case 6:
+				$user_query .= " pa = pa-1 ";
+				break;
+		}
+		$user_query .= " where id='$id' and passmd5='$passmd5' LIMIT 1";
+		mysql_query($user_query);
+	}
 	
-	switch ($p_clear) {
+	// add new value
+	$user_query = "UPDATE LR2IR_user SET playcount=playcount+$playcount, songcount=songcount+1, clearcount=clearcount+$clearcount, ";
+	switch ($clear) {
 		case 0:
 			break;
 		case 1:
-			$user_query .= " failed = failed-1 ";
+			$user_query .= " failed = failed+1 ";
 			break;
 		case 2:
-			$user_query .= " easy = easy-1 ";
+			$user_query .= " easy = easy+1 ";
 			break;
 		case 3:
-			$user_query .= " groove = groove-1 ";
+			$user_query .= " groove = groove+1 ";
 			break;
 		case 4:
-			$user_query .= " hard = hard-1 ";
+			$user_query .= " hard = hard+1 ";
 			break;
 		case 5:
-			$user_query .= " fc = fc-1 ";
+			$user_query .= " fc = fc+1 ";
 			break;
 		case 6:
-			$user_query .= " pa = pa-1 ";
+			$user_query .= " pa = pa+1 ";
 			break;
 	}
 	$user_query .= " where id='$id' and passmd5='$passmd5' LIMIT 1";
 	mysql_query($user_query);
 }
-
-// add new value
-$user_query = "UPDATE LR2IR_user SET playcount=playcount+$playcount, songcount=songcount+1, clearcount=clearcount+$clearcount, ";
-switch ($clear) {
-	case 0:
-		break;
-	case 1:
-		$user_query .= " failed = failed+1 ";
-		break;
-	case 2:
-		$user_query .= " easy = easy+1 ";
-		break;
-	case 3:
-		$user_query .= " groove = groove+1 ";
-		break;
-	case 4:
-		$user_query .= " hard = hard+1 ";
-		break;
-	case 5:
-		$user_query .= " fc = fc+1 ";
-		break;
-	case 6:
-		$user_query .= " pa = pa+1 ";
-		break;
-}
-$user_query .= " where id='$id' and passmd5='$passmd5' LIMIT 1";
-mysql_query($user_query);
 
 
 // -------------------------------
@@ -162,7 +167,7 @@ mysql_query($user_query);
 // -------------------------------
 $song_query = "SELECT * FROM song where songmd5='$songmd5'";
 $song = mysql_query($song_query);
-if ($song == NULL or mysql_num_rows($song) == 0) {
+if (mysql_num_rows($song) == 0) {
 	$song_query = "INSERT INTO `lr2ir`.`song` (`songmd5`, `title`, `genre`, `artist`, `tag`, `course`, `level`, `mode`, `favorite`, `exlevel`, `difficulty`, `url_original`, `url_sabun`, `desc`, `pa`, `fc`, `hd`, `gv`, `easy`, `fail`, `playcount`, `clearcount`, `playusercount`, `clearusercount`, `guage`, `timestamp`) VALUES ('$songmd5', '$title', '$genre', '$artist', '', '', '$level', '$mode', '0', '0', '$difficulty', '', '', '', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '', CURRENT_TIMESTAMP);";
 	mysql_query($song_query);
 } else {
@@ -194,6 +199,9 @@ if ($song == NULL or mysql_num_rows($song) == 0) {
 	}
 	$song_query .= ", playusercount=playusercount-1 where songmd5='$songmd5'";
 	mysql_query($song_query);
+	
+	//print "PREVIOUS QUERY REMOVED<br>";
+	//print "$song_query<br>";
 }
 
 $song_query = "UPDATE song SET playcount=playcount+$playcount, clearcount=clearcount+$clearcount, ";
@@ -278,7 +286,6 @@ $str_rank = $rank . "/" . $totrank;
 
 $play_query = "UPDATE play SET str_rank='$str_rank', str_clear='$str_clear' where id='$id' and songmd5='$songmd5'";
 mysql_query($play_query);
-
 
 
 mysql_close($link);
